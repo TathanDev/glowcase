@@ -22,8 +22,6 @@ import net.minecraft.world.World;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.fabricmc.fabric.api.server.PlayerStream;
 
 public class ItemDisplayBlockEntity extends BlockEntity {
 	private ItemStack stack = ItemStack.EMPTY;

@@ -2,10 +2,12 @@ package dev.hephaestus.glowcase.client.gui.screen.ingame;
 
 import dev.hephaestus.glowcase.block.entity.ItemDisplayBlockEntity;
 import dev.hephaestus.glowcase.networking.ItemDisplayBlockChannel;
+
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.text.Text;
+
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.TranslatableText;
 
 @Environment(EnvType.CLIENT)
 public class ItemDisplayBlockEditScreen extends GlowcaseScreen {
@@ -29,21 +31,21 @@ public class ItemDisplayBlockEditScreen extends GlowcaseScreen {
 			int centerW = width / 2;
 			int centerH = height / 2;
 
-			this.givesItemButtom = new ButtonWidget(centerW - 75, centerH - 30 - individualPadding, 150, 20, new TranslatableText("gui.glowcase.gives_item", this.displayBlock.givesItem), (action) -> {
+			this.givesItemButtom = new ButtonWidget(centerW - 75, centerH - 30 - individualPadding, 150, 20, Text.translatable("gui.glowcase.gives_item", this.displayBlock.givesItem), (action) -> {
 				this.displayBlock.givesItem = !this.displayBlock.givesItem;
-				this.givesItemButtom.setMessage(new TranslatableText("gui.glowcase.gives_item", this.displayBlock.givesItem));
+				this.givesItemButtom.setMessage(Text.translatable("gui.glowcase.gives_item", this.displayBlock.givesItem));
 				ItemDisplayBlockChannel.sync(this.displayBlock, true);
 			});
 
-			this.rotationTypeButton = new ButtonWidget(centerW - 75, centerH - 10, 150, 20, new TranslatableText("gui.glowcase.rotation_type", this.displayBlock.rotationType), (action) -> {
+			this.rotationTypeButton = new ButtonWidget(centerW - 75, centerH - 10, 150, 20, Text.translatable("gui.glowcase.rotation_type", this.displayBlock.rotationType), (action) -> {
 				this.displayBlock.cycleRotationType(this.client.player);
-				this.rotationTypeButton.setMessage(new TranslatableText("gui.glowcase.rotation_type", this.displayBlock.rotationType));
+				this.rotationTypeButton.setMessage(Text.translatable("gui.glowcase.rotation_type", this.displayBlock.rotationType));
 				ItemDisplayBlockChannel.sync(this.displayBlock, true);
 			});
 
-			this.showNameButton = new ButtonWidget(centerW - 75, centerH + 10 + individualPadding, 150, 20, new TranslatableText("gui.glowcase.show_name", this.displayBlock.showName), (action) -> {
+			this.showNameButton = new ButtonWidget(centerW - 75, centerH + 10 + individualPadding, 150, 20, Text.translatable("gui.glowcase.show_name", this.displayBlock.showName), (action) -> {
 				this.displayBlock.showName = !this.displayBlock.showName;
-				this.showNameButton.setMessage(new TranslatableText("gui.glowcase.show_name", this.displayBlock.showName));
+				this.showNameButton.setMessage(Text.translatable("gui.glowcase.show_name", this.displayBlock.showName));
 				ItemDisplayBlockChannel.sync(this.displayBlock, false);
 			});
 

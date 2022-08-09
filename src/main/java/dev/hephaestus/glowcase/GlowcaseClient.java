@@ -15,7 +15,9 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawableHelper;
 import net.minecraft.client.util.Window;
-import net.minecraft.text.*;
+import net.minecraft.text.OrderedText;
+import net.minecraft.text.StringVisitable;
+import net.minecraft.text.Text;
 import net.minecraft.util.hit.BlockHitResult;
 
 import java.util.List;
@@ -39,7 +41,7 @@ public class GlowcaseClient implements ClientModInitializer {
 				TextRenderer textRenderer = client.textRenderer;
 				MailboxBlockEntity.Message message = mailbox.getMessage();
 				List<OrderedText> lines = textRenderer.wrapLines(StringVisitable.plain(message.message()), window.getWidth() / 2);
-				Text reminder2 = new TranslatableText("glowcase.mailbox.reminder2");
+				Text reminder2 = Text.translatable("glowcase.mailbox.reminder2");
 
 				int padding = 3;
 
@@ -61,12 +63,12 @@ public class GlowcaseClient implements ClientModInitializer {
 					y += lineHeight;
 				}
 
-				textRenderer.draw(matrixStack, new TranslatableText("glowcase.mailbox.sender", message.senderName()), startX + 3, startY + 3, -1);
+				textRenderer.draw(matrixStack, Text.translatable("glowcase.mailbox.sender", message.senderName()), startX + 3, startY + 3, -1);
 
-				Text messageCount = new LiteralText("1/" + mailbox.messageCount());
+				Text messageCount = Text.literal("1/" + mailbox.messageCount());
 				textRenderer.draw(matrixStack, messageCount, startX + totalWidth - 3 - textRenderer.getWidth(messageCount), y + lineHeight, -1);
 
-				Text reminder1 = new TranslatableText("glowcase.mailbox.reminder1");
+				Text reminder1 = Text.translatable("glowcase.mailbox.reminder1");
 				textRenderer.draw(matrixStack, reminder1, startX + totalWidth - 3 - textRenderer.getWidth(reminder1), y + lineHeight * 2, 0xFFAAAAAA);
 
 				textRenderer.draw(matrixStack, reminder2, startX + totalWidth - 3 - textRenderer.getWidth(reminder2), y + lineHeight * 3, 0xFFAAAAAA);

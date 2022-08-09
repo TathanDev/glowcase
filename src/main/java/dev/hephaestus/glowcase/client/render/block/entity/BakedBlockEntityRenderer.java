@@ -136,15 +136,15 @@ public abstract class BakedBlockEntityRenderer<T extends BlockEntity> implements
 
 			public void render(RenderLayer rl, MatrixStack matrices, Matrix4f projectionMatrix) {
 				VertexBuffer buf = layerBuffers.get(rl);
-				// (yarn name is misleading - setShader actually calls draw)
-				buf.setShader(matrices.peek().getPositionMatrix(), projectionMatrix, RenderSystem.getShader());
+				buf.bind();
+				buf.draw(matrices.peek().getPositionMatrix(), projectionMatrix, RenderSystem.getShader());
 			}
 
 			public void rebuild(RenderLayer rl, BufferBuilder newBuf) {
 				VertexBuffer buf = layerBuffers.computeIfAbsent(rl, renderLayer -> new VertexBuffer());
 				// TODO: translucency sorting?
-				newBuf.end();
-				buf.upload(newBuf);
+				buf.bind();
+				buf.upload(newBuf.end());
 			}
 
 			public void deallocate() {

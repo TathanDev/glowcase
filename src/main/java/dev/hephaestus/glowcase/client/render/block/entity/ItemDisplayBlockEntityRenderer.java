@@ -1,6 +1,7 @@
 package dev.hephaestus.glowcase.client.render.block.entity;
 
 import dev.hephaestus.glowcase.block.entity.ItemDisplayBlockEntity;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -14,9 +15,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.SpawnEggItem;
 import net.minecraft.state.property.Properties;
-import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
-import net.minecraft.text.TranslatableText;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.Vec2f;
@@ -75,13 +74,13 @@ public record ItemDisplayBlockEntityRenderer(BlockEntityRendererFactory.Context 
 				EntityRenderer<? super Entity> entityRenderer = MinecraftClient.getInstance().getEntityRenderDispatcher().getRenderer(renderEntity);
 				entityRenderer.render(renderEntity, 0, tickDelta, matrices, vertexConsumers, light);
 			} else {
-				name = LiteralText.EMPTY;
+				name = Text.empty();
 			}
 			matrices.pop();
 			matrices.translate(0, 0.125F, 0);
 			matrices.scale(0.5F, 0.5F, 0.5F);
 		} else {
-			name = stack.isEmpty() ? new TranslatableText("gui.glowcase.none") : (new LiteralText("")).append(stack.getName()).formatted(stack.getRarity().formatting);
+			name = stack.isEmpty() ? Text.translatable("gui.glowcase.none") : (Text.literal("")).append(stack.getName()).formatted(stack.getRarity().formatting);
 			matrices.translate(0, 0.5, 0);
 			matrices.scale(0.5F, 0.5F, 0.5F);
 			matrices.multiply(Vec3f.POSITIVE_X.getRadialQuaternion(pitch));

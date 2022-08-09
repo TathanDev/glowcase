@@ -2,11 +2,13 @@ package dev.hephaestus.glowcase.client.gui.screen.ingame;
 
 import dev.hephaestus.glowcase.block.entity.HyperlinkBlockEntity;
 import dev.hephaestus.glowcase.networking.HyperlinkChannel;
+import org.lwjgl.glfw.GLFW;
+
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.text.Text;
+
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.LiteralText;
-import org.lwjgl.glfw.GLFW;
 
 @Environment(EnvType.CLIENT)
 public class HyperlinkBlockEditScreen extends GlowcaseScreen {
@@ -26,7 +28,7 @@ public class HyperlinkBlockEditScreen extends GlowcaseScreen {
 
 		this.client.keyboard.setRepeatEvents(true);
 
-		this.urlEntryWidget = new TextFieldWidget(this.client.textRenderer, width / 10, height / 2 - 10, 8 * width / 10, 20, LiteralText.EMPTY);
+		this.urlEntryWidget = new TextFieldWidget(this.client.textRenderer, width / 10, height / 2 - 10, 8 * width / 10, 20, Text.empty());
 		this.urlEntryWidget.setText(this.hyperlinkBlockEntity.url);
 		this.urlEntryWidget.setMaxLength(Integer.MAX_VALUE);
 

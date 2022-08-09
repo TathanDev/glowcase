@@ -16,7 +16,6 @@ import net.minecraft.nbt.NbtString;
 import net.minecraft.network.Packet;
 import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.text.LiteralText;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
@@ -34,7 +33,7 @@ public class TextBlockEntity extends BlockEntity {
 
 	public TextBlockEntity(BlockPos pos, BlockState state) {
 		super(Glowcase.TEXT_BLOCK_ENTITY, pos, state);
-		lines.add((MutableText) LiteralText.EMPTY);
+		lines.add((MutableText) Text.empty());
 	}
 
 	@Override
