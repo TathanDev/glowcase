@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Environment(EnvType.CLIENT)
 @Mixin(WorldRenderer.class)
 public class WorldRendererMixin {
-	@Inject(method = "setWorld", at = @At("HEAD"))
+	@Inject(method = "setWorld", at = @At("RETURN"))
 	public void onSetWorld(ClientWorld clientWorld, CallbackInfo ci) {
 		BakedBlockEntityRenderer.VertexBufferManager.INSTANCE.setWorld(clientWorld);
 	}

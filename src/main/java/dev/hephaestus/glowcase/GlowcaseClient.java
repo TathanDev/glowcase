@@ -30,7 +30,7 @@ public class GlowcaseClient implements ClientModInitializer {
 		BlockEntityRendererRegistry.register(Glowcase.HYPERLINK_BLOCK_ENTITY, HyperlinkBlockEntityRenderer::new);
 		BlockEntityRendererRegistry.register(Glowcase.ITEM_DISPLAY_BLOCK_ENTITY, ItemDisplayBlockEntityRenderer::new);
 
-		WorldRenderEvents.AFTER_ENTITIES.register(ctx ->
+		WorldRenderEvents.AFTER_TRANSLUCENT.register(ctx ->
 			BakedBlockEntityRenderer.VertexBufferManager.INSTANCE.render(ctx.matrixStack(), ctx.projectionMatrix(), ctx.camera()));
 
 		HudRenderCallback.EVENT.register((matrixStack, tickDelta) -> {

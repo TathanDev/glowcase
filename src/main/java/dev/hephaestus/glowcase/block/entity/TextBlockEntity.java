@@ -111,7 +111,7 @@ public class TextBlockEntity extends BlockEntity {
 	@Override
 	public void markRemoved() {
 		if (world != null && world.isClient) {
-			BakedBlockEntityRenderer.VertexBufferManager.INSTANCE.invalidate(getPos());
+			BakedBlockEntityRenderer.VertexBufferManager.INSTANCE.invalidateRegion(getPos());
 		}
 	}
 }
