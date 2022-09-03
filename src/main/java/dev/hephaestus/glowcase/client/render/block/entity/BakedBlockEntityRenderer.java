@@ -241,7 +241,11 @@ public abstract class BakedBlockEntityRenderer<T extends BlockEntity> implements
 
 					RegionBuffer buf = regions.computeIfAbsent(entryBuilder.getKey(), k -> new RegionBuffer());
 					for (Map.Entry<RenderLayer, BufferBuilder> layerBuilder : entryBuilder.getValue()) {
-						buf.upload(layerBuilder.getKey(), layerBuilder.getValue());
+						RenderLayer layer = layerBuilder.getKey();
+						BufferBuilder builder = layerBuilder.getValue();
+
+						if (!builder.isBuilding()) builder.begin(layer.getDrawMode(), layer.getVertexFormat());
+						buf.upload(layer, builder);
 					}
 				}
 			}
