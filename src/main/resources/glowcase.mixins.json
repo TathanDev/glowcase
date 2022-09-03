@@ -5,6 +5,7 @@
   "mixins": [],
   "client": [
     "client.MinecraftClientAccessor",
+    "client.render.BufferBuilderAccessor",
     "client.render.ber.RenderPhaseAccessor",
     "client.render.ber.WorldRendererMixin",
     "client.render.entity.EntityRenderDispatcherAccessor"

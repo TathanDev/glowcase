@@ -97,8 +97,8 @@ public record ItemDisplayBlockEntityRenderer(BlockEntityRendererFactory.Context 
 				matrices.scale(scale, scale, scale);
 
 				int color = name.getStyle().getColor() == null ? 0xFFFFFF : name.getStyle().getColor().getRgb();
-				matrices.translate(-MinecraftClient.getInstance().textRenderer.getWidth(name) / 2F, -4, 0);
-				MinecraftClient.getInstance().textRenderer.drawWithShadow(matrices, name, 0, 0, color);
+				matrices.translate(-context.getTextRenderer().getWidth(name) / 2F, -4, 0);
+				context.getTextRenderer().drawWithShadow(matrices, name, 0, 0, color);
 			}
 		}
 

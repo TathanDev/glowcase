@@ -20,6 +20,11 @@ public interface RenderPhaseAccessor {
 	}
 
 	@Accessor
+	static RenderPhase.WriteMaskState getCOLOR_MASK() {
+		throw new RuntimeException("Mixin not applied");
+	}
+
+	@Accessor
 	static RenderPhase.Shader getCOLOR_SHADER() {
 		throw new RuntimeException("Mixin not applied");
 	}

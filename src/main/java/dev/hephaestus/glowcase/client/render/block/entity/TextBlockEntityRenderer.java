@@ -19,7 +19,7 @@ public class TextBlockEntityRenderer extends BakedBlockEntityRenderer<TextBlockE
 	public void renderUnbaked(TextBlockEntity entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay) {
 		if (entity.renderDirty) {
 			entity.renderDirty = false;
-			invalidateSelf(entity);
+			invalidate(entity.getPos());
 		}
 	}
 
@@ -82,11 +82,11 @@ public class TextBlockEntityRenderer extends BakedBlockEntityRenderer<TextBlockE
 	}
 
 	// Use a custom render layer to render the text plate - mimics DrawableHelper's RenderSystem calls
-	// TODO: This causes issues with transparency - not sure if these can be fixed?
 	private final RenderLayer plateRenderLayer = RenderLayer.of("glowcase_text_plate", VertexFormats.POSITION_COLOR,
 		VertexFormat.DrawMode.QUADS, 256, true, true, RenderLayer.MultiPhaseParameters.builder()
 			.texture(RenderPhaseAccessor.getNO_TEXTURE())
 			.transparency(RenderPhaseAccessor.getTRANSLUCENT_TRANSPARENCY())
+			.writeMaskState(RenderPhaseAccessor.getCOLOR_MASK())
 			.shader(RenderPhaseAccessor.getCOLOR_SHADER())
 			.build(false));
 
