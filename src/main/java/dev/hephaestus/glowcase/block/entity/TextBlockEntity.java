@@ -4,7 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import dev.hephaestus.glowcase.Glowcase;
-import dev.hephaestus.glowcase.client.render.block.entity.BakedBlockEntityRenderer;
+import dev.hephaestus.glowcase.client.render.block.entity.BakedBlockEntityRenderer.BakedBlockEntityRendererManager;
+
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.block.BlockState;
@@ -111,7 +112,7 @@ public class TextBlockEntity extends BlockEntity {
 	@Override
 	public void markRemoved() {
 		if (world != null && world.isClient) {
-			BakedBlockEntityRenderer.VertexBufferManager.INSTANCE.invalidateRegion(getPos());
+			BakedBlockEntityRendererManager.markForRebuild(getPos());
 		}
 	}
 }

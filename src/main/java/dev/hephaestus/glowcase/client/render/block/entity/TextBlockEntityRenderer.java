@@ -1,7 +1,7 @@
 package dev.hephaestus.glowcase.client.render.block.entity;
 
 import dev.hephaestus.glowcase.block.entity.TextBlockEntity;
-import dev.hephaestus.glowcase.mixin.client.render.ber.RenderPhaseAccessor;
+import dev.hephaestus.glowcase.client.GlowcaseRenderLayers;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.*;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
@@ -19,7 +19,7 @@ public class TextBlockEntityRenderer extends BakedBlockEntityRenderer<TextBlockE
 	public void renderUnbaked(TextBlockEntity entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay) {
 		if (entity.renderDirty) {
 			entity.renderDirty = false;
-			invalidate(entity.getPos());
+			BakedBlockEntityRendererManager.markForRebuild(entity.getPos());
 		}
 	}
 
@@ -69,11 +69,11 @@ public class TextBlockEntityRenderer extends BakedBlockEntityRenderer<TextBlockE
 				// Don't use the vanilla shadow rendering - it breaks when you try to use it in 3D
 				int shadowColor = 0x88000000;
 				matrices.translate(0, 0, -0.025D);
-				textRenderer.draw(blockEntity.lines.get(i), 1, (i * 12) + 1, shadowColor, false, matrices.peek().getPositionMatrix(), vertexConsumers, false, 0, 15728880);
+				textRenderer.draw(blockEntity.lines.get(i), 1, (i * 12) + 1, shadowColor, false, matrices.peek().getPositionMatrix(), vertexConsumers, false, 0, LightmapTextureManager.MAX_LIGHT_COORDINATE);
 				matrices.translate(0, 0, 0.025D);
 			}
 
-			textRenderer.draw(blockEntity.lines.get(i), 0, i * 12, blockEntity.color, false, matrices.peek().getPositionMatrix(), vertexConsumers, false, 0, 15728880);
+			textRenderer.draw(blockEntity.lines.get(i), 0, i * 12, blockEntity.color, false, matrices.peek().getPositionMatrix(), vertexConsumers, false, 0, LightmapTextureManager.MAX_LIGHT_COORDINATE);
 
 			matrices.pop();
 		}
@@ -81,22 +81,13 @@ public class TextBlockEntityRenderer extends BakedBlockEntityRenderer<TextBlockE
 		matrices.pop();
 	}
 
-	// Use a custom render layer to render the text plate - mimics DrawableHelper's RenderSystem calls
-	private final RenderLayer plateRenderLayer = RenderLayer.of("glowcase_text_plate", VertexFormats.POSITION_COLOR,
-		VertexFormat.DrawMode.QUADS, 256, true, true, RenderLayer.MultiPhaseParameters.builder()
-			.texture(RenderPhaseAccessor.getNO_TEXTURE())
-			.transparency(RenderPhaseAccessor.getTRANSLUCENT_TRANSPARENCY())
-			.writeMaskState(RenderPhaseAccessor.getCOLOR_MASK())
-			.shader(RenderPhaseAccessor.getCOLOR_SHADER())
-			.build(false));
-
 	@SuppressWarnings("SameParameterValue")
 	private void drawFillRect(MatrixStack matrices, VertexConsumerProvider vcp, int x1, int y1, int x2, int y2, int color) {
 		float red = (float)(color >> 16 & 255) / 255.0F;
 		float green = (float)(color >> 8 & 255) / 255.0F;
 		float blue = (float)(color & 255) / 255.0F;
 		float alpha = (float)(color >> 24 & 255) / 255.0F;
-		VertexConsumer consumer = vcp.getBuffer(plateRenderLayer);
+		VertexConsumer consumer = vcp.getBuffer(GlowcaseRenderLayers.TEXT_PLATE);
 		Matrix4f matrix = matrices.peek().getPositionMatrix();
 		consumer.vertex(matrix, x1, y2, 0.0f)
 			.color(red, green, blue, alpha).next();
