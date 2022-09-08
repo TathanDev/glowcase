@@ -2,12 +2,10 @@ package dev.hephaestus.glowcase.client.gui.screen.ingame;
 
 import dev.hephaestus.glowcase.block.entity.ItemDisplayBlockEntity;
 import dev.hephaestus.glowcase.networking.ItemDisplayBlockChannel;
-
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
-
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.text.Text;
 
 @Environment(EnvType.CLIENT)
 public class ItemDisplayBlockEditScreen extends GlowcaseScreen {
@@ -32,7 +30,7 @@ public class ItemDisplayBlockEditScreen extends GlowcaseScreen {
 			int centerH = height / 2;
 
 			this.givesItemButtom = new ButtonWidget(centerW - 75, centerH - 30 - individualPadding, 150, 20, Text.translatable("gui.glowcase.gives_item", this.displayBlock.givesItem), (action) -> {
-				this.displayBlock.givesItem = !this.displayBlock.givesItem;
+				this.displayBlock.cycleGiveType();
 				this.givesItemButtom.setMessage(Text.translatable("gui.glowcase.gives_item", this.displayBlock.givesItem));
 				ItemDisplayBlockChannel.sync(this.displayBlock, true);
 			});

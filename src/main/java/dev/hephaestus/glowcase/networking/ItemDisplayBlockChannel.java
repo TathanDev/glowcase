@@ -4,7 +4,15 @@ import dev.hephaestus.glowcase.Glowcase;
 import dev.hephaestus.glowcase.block.entity.ItemDisplayBlockEntity;
 import dev.hephaestus.glowcase.client.gui.screen.ingame.ItemDisplayBlockEditScreen;
 import io.netty.buffer.Unpooled;
-
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PacketSender;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.network.PacketByteBuf;
@@ -16,29 +24,19 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec2f;
 
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketSender;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-
 public class ItemDisplayBlockChannel implements ModInitializer, ClientModInitializer {
     private static final Identifier ID = Glowcase.id("channel", "item_display");
 
     public static void openScreen(ServerPlayerEntity player, BlockPos pos) {
         ServerPlayNetworking.send(player, ID, new PacketByteBuf(Unpooled.buffer()).writeBlockPos(pos));
     }
-    
+
     @Environment(EnvType.CLIENT)
     public static void sync(ItemDisplayBlockEntity itemDisplayBlockEntity, boolean updatePitchAndYaw) {
         PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
         buf.writeBlockPos(itemDisplayBlockEntity.getPos());
         buf.writeEnumConstant(itemDisplayBlockEntity.rotationType);
-        buf.writeBoolean(itemDisplayBlockEntity.givesItem);
+        buf.writeEnumConstant(itemDisplayBlockEntity.givesItem);
         buf.writeVarInt(itemDisplayBlockEntity.getCachedState().get(Properties.ROTATION));
         buf.writeBoolean(itemDisplayBlockEntity.showName);
 
@@ -80,7 +78,7 @@ public class ItemDisplayBlockChannel implements ModInitializer, ClientModInitial
     private void save(MinecraftServer server, ServerPlayerEntity player, ServerPlayNetworkHandler handler, PacketByteBuf buf, PacketSender sender) {
         BlockPos pos = buf.readBlockPos();
         ItemDisplayBlockEntity.RotationType rotationType = buf.readEnumConstant(ItemDisplayBlockEntity.RotationType.class);
-        boolean givesItem = buf.readBoolean();
+        ItemDisplayBlockEntity.GivesItem givesItem = buf.readEnumConstant(ItemDisplayBlockEntity.GivesItem.class);
         int rotation = buf.readVarInt();
         boolean showName = buf.readBoolean();
 
