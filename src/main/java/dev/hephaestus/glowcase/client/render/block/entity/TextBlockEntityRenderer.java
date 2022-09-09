@@ -16,6 +16,11 @@ public class TextBlockEntityRenderer extends BakedBlockEntityRenderer<TextBlockE
 	}
 
 	@Override
+	public boolean shouldBake(TextBlockEntity entity) {
+		return !entity.lines.isEmpty();
+	}
+
+	@Override
 	public void renderUnbaked(TextBlockEntity entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay) {
 		if (entity.renderDirty) {
 			entity.renderDirty = false;

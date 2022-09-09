@@ -78,6 +78,7 @@ public class TextBlockEntity extends BlockEntity {
 		NbtList lines = tag.getList("lines", 8);
 
 		for (NbtElement line : lines) {
+			if (line.getType() == NbtElement.END_TYPE) break;
 			this.lines.add(Text.Serializer.fromJson(line.asString()));
 		}
 		

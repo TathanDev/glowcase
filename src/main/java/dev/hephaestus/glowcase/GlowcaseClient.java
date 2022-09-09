@@ -10,6 +10,7 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.InvalidateRenderStateCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -31,6 +32,7 @@ public class GlowcaseClient implements ClientModInitializer {
 		BlockEntityRendererRegistry.register(Glowcase.ITEM_DISPLAY_BLOCK_ENTITY, ItemDisplayBlockEntityRenderer::new);
 
 		WorldRenderEvents.AFTER_TRANSLUCENT.register(BakedBlockEntityRendererManager::render);
+		InvalidateRenderStateCallback.EVENT.register(BakedBlockEntityRendererManager::reset);
 
 		HudRenderCallback.EVENT.register((matrixStack, tickDelta) -> {
 			MinecraftClient client = MinecraftClient.getInstance();
