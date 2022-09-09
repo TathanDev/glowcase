@@ -256,8 +256,11 @@ public abstract class BakedBlockEntityRenderer<T extends BlockEntity> implements
 				wrc.profiler().pop();
 				removing.forEach(rrp -> {
 					RegionBuffer buf = regions.get(rrp);
-					buf.deallocate();
-					regions.remove(rrp, buf);
+
+					if (buf != null) {
+						buf.deallocate();
+						regions.remove(rrp, buf);
+					}
 				});
 			}
 
