@@ -22,9 +22,11 @@ import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.Vec3f;
 
 public record ItemDisplayBlockEntityRenderer(BlockEntityRendererFactory.Context context) implements BlockEntityRenderer<ItemDisplayBlockEntity> {
+	private static final MinecraftClient mc = MinecraftClient.getInstance();
+
 	@Override
 	public void render(ItemDisplayBlockEntity entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay) {
-		PlayerEntity player = MinecraftClient.getInstance().player;
+		PlayerEntity player = mc.player;
 
 		if (player == null) return;
 
@@ -71,7 +73,7 @@ public record ItemDisplayBlockEntityRenderer(BlockEntityRendererFactory.Context 
 				renderEntity.setHeadYaw(yaw);
 
 				matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(180));
-				EntityRenderer<? super Entity> entityRenderer = MinecraftClient.getInstance().getEntityRenderDispatcher().getRenderer(renderEntity);
+				EntityRenderer<? super Entity> entityRenderer = context.getEntityRenderDispatcher().getRenderer(renderEntity);
 				entityRenderer.render(renderEntity, 0, tickDelta, matrices, vertexConsumers, light);
 			} else {
 				name = Text.empty();
@@ -84,11 +86,11 @@ public record ItemDisplayBlockEntityRenderer(BlockEntityRendererFactory.Context 
 			matrices.translate(0, 0.5, 0);
 			matrices.scale(0.5F, 0.5F, 0.5F);
 			matrices.multiply(Vec3f.POSITIVE_X.getRadialQuaternion(pitch));
-			MinecraftClient.getInstance().getItemRenderer().renderItem(entity.getUseStack(), ModelTransformation.Mode.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, 0);
+			context.getItemRenderer().renderItem(entity.getUseStack(), ModelTransformation.Mode.FIXED, light, OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, 0);
 		}
 
 		if (entity.showName) {
-			HitResult hitResult = MinecraftClient.getInstance().crosshairTarget;
+			HitResult hitResult = mc.crosshairTarget;
 			if (hitResult instanceof BlockHitResult && ((BlockHitResult) hitResult).getBlockPos().equals(entity.getPos())) {
 				matrices.multiply(Vec3f.POSITIVE_Z.getDegreesQuaternion(180.0F));
 				matrices.translate(0, 0, -0.4);
@@ -97,8 +99,8 @@ public record ItemDisplayBlockEntityRenderer(BlockEntityRendererFactory.Context 
 				matrices.scale(scale, scale, scale);
 
 				int color = name.getStyle().getColor() == null ? 0xFFFFFF : name.getStyle().getColor().getRgb();
-				matrices.translate(-MinecraftClient.getInstance().textRenderer.getWidth(name) / 2F, -4, 0);
-				MinecraftClient.getInstance().textRenderer.drawWithShadow(matrices, name, 0, 0, color);
+				matrices.translate(-context.getTextRenderer().getWidth(name) / 2F, -4, 0);
+				context.getTextRenderer().drawWithShadow(matrices, name, 0, 0, color);
 			}
 		}
 

@@ -1,6 +1,6 @@
 package dev.hephaestus.glowcase.mixin.client.render.ber;
 
-import dev.hephaestus.glowcase.client.render.block.entity.BakedBlockEntityRenderer;
+import dev.hephaestus.glowcase.client.render.block.entity.BakedBlockEntityRenderer.BakedBlockEntityRendererManager;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.render.WorldRenderer;
@@ -13,8 +13,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Environment(EnvType.CLIENT)
 @Mixin(WorldRenderer.class)
 public class WorldRendererMixin {
-	@Inject(method = "setWorld", at = @At("HEAD"))
+	@Inject(method = "setWorld", at = @At("RETURN"))
 	public void onSetWorld(ClientWorld clientWorld, CallbackInfo ci) {
-		BakedBlockEntityRenderer.VertexBufferManager.INSTANCE.setWorld(clientWorld);
+		BakedBlockEntityRendererManager.setWorld(clientWorld);
 	}
 }

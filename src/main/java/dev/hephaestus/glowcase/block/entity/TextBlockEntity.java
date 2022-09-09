@@ -4,7 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import dev.hephaestus.glowcase.Glowcase;
-import dev.hephaestus.glowcase.client.render.block.entity.BakedBlockEntityRenderer;
+import dev.hephaestus.glowcase.client.render.block.entity.BakedBlockEntityRenderer.BakedBlockEntityRendererManager;
+
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.block.BlockState;
@@ -77,6 +78,7 @@ public class TextBlockEntity extends BlockEntity {
 		NbtList lines = tag.getList("lines", 8);
 
 		for (NbtElement line : lines) {
+			if (line.getType() == NbtElement.END_TYPE) break;
 			this.lines.add(Text.Serializer.fromJson(line.asString()));
 		}
 		
@@ -111,7 +113,7 @@ public class TextBlockEntity extends BlockEntity {
 	@Override
 	public void markRemoved() {
 		if (world != null && world.isClient) {
-			BakedBlockEntityRenderer.VertexBufferManager.INSTANCE.invalidate(getPos());
+			BakedBlockEntityRendererManager.markForRebuild(getPos());
 		}
 	}
 }

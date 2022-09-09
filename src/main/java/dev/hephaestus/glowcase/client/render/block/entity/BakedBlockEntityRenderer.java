@@ -2,27 +2,34 @@ package dev.hephaestus.glowcase.client.render.block.entity;
 
 import com.google.common.collect.Sets;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.logging.LogUtils;
+
+import dev.hephaestus.glowcase.mixin.client.render.BufferBuilderAccessor;
 import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
-import it.unimi.dsi.fastutil.objects.ObjectArraySet;
-import net.fabricmc.fabric.api.client.rendering.v1.InvalidateRenderStateCallback;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ReferenceArrayMap;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.VertexBuffer;
 import net.minecraft.client.render.*;
-import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Matrix3f;
 import net.minecraft.util.math.Matrix4f;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 import java.util.*;
 
 public abstract class BakedBlockEntityRenderer<T extends BlockEntity> implements BlockEntityRenderer<T> {
+	protected static final MinecraftClient mc = MinecraftClient.getInstance();
+
 	protected final BlockEntityRendererFactory.Context context;
 
 	protected BakedBlockEntityRenderer(BlockEntityRendererFactory.Context context) {
@@ -36,7 +43,7 @@ public abstract class BakedBlockEntityRenderer<T extends BlockEntity> implements
 	@Override
 	public final void render(T entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay) {
 		renderUnbaked(entity, tickDelta, matrices, vertexConsumers, light, overlay);
-		VertexBufferManager.INSTANCE.activateRegion(entity.getPos());
+		BakedBlockEntityRendererManager.activateRegion(entity.getPos());
 	}
 
 	/**
@@ -56,39 +63,22 @@ public abstract class BakedBlockEntityRenderer<T extends BlockEntity> implements
 	 */
 	public abstract void renderUnbaked(T entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay);
 
-	/**
-	 * Causes the render region containing this BlockEntity to be rebuilt -
-	 * do not call this too frequently as it will affect performance.
-	 * An invalidation will not immediately cause the next frame to contain an updated view (and call to renderBaked)
-	 * as all render region rebuilds must call every BER that is to be rendered, otherwise they will be missing from the
-	 * vertex buffer.
-	 */
-	public void invalidateSelf(T entity) {
-		VertexBufferManager.INSTANCE.invalidate(entity.getPos());
-	}
+	public abstract boolean shouldBake(T entity);
 
-	private static class RenderRegionPos {
-		private final int x;
-		private final int z;
+	private static record RenderRegionPos(int x, int z, @Nullable BlockPos origin) {
+		public RenderRegionPos(int x, int z) {
+			this(x, z, new BlockPos(x << BakedBlockEntityRendererManager.REGION_SHIFT, 0, z << BakedBlockEntityRendererManager.REGION_SHIFT));
+		}
 
 		public RenderRegionPos(BlockPos pos) {
-			this.x = pos.getX() >> VertexBufferManager.REGION_SHIFT;
-			this.z = pos.getZ() >> VertexBufferManager.REGION_SHIFT;
-		}
-
-		public RenderRegionPos(int x, int z) {
-			this.x = x;
-			this.z = z;
-		}
-
-		public BlockPos getOrigin() {
-			return new BlockPos(x << VertexBufferManager.REGION_SHIFT, 0, z << VertexBufferManager.REGION_SHIFT);
+			this(pos.getX() >> BakedBlockEntityRendererManager.REGION_SHIFT, pos.getZ() >> BakedBlockEntityRendererManager.REGION_SHIFT);
 		}
 
 		@Override
 		public boolean equals(Object o) {
 			if (this == o) return true;
 			if (o == null || getClass() != o.getClass()) return false;
+
 			RenderRegionPos that = (RenderRegionPos) o;
 			return x == that.x &&
 				z == that.z;
@@ -100,221 +90,235 @@ public abstract class BakedBlockEntityRenderer<T extends BlockEntity> implements
 		}
 	}
 
-	// TODO: lazy init?
-	public static class VertexBufferManager {
-		public static final VertexBufferManager INSTANCE = new VertexBufferManager();
-
+	public static class BakedBlockEntityRendererManager {
 		// 2x2 chunks size for regions
 		public static final int REGION_FROMCHUNK_SHIFT = 1;
 		public static final int REGION_SHIFT = 4 + REGION_FROMCHUNK_SHIFT;
-		public static final int MAX_XZ_IN_REG = (16 << REGION_FROMCHUNK_SHIFT) - 1;
+		public static final int MAX_XZ_IN_REGION = (16 << REGION_FROMCHUNK_SHIFT) - 1;
 		public static final int VIEW_RADIUS = 3;
 
-		private final Map<RenderRegionPos, RegionBuffer> cachedRegions = new HashMap<>();
+		private static final Map<RenderRegionPos, RegionBuffer> regions = new Object2ObjectOpenHashMap<>();
 
-		private final Set<RenderRegionPos> invalidRegions = Sets.newHashSet();
-		private final Map<RenderRegionPos, RegionBuilder> rebuilders = new Object2ObjectArrayMap<>();
+		private static final Set<RenderRegionPos> needsRebuild = Sets.newHashSet();
+		private static final Map<RenderRegionPos, RegionBufferBuilder> builders = new Object2ObjectOpenHashMap<>();
 
-		private ClientWorld currWorld = null;
+		private static final Matrix3f MATRIX3F_IDENTITY = new Matrix3f();
+		static { MATRIX3F_IDENTITY.loadIdentity(); }
 
-		public VertexBufferManager() {
-			// Register callback, to rebuild all when fonts/render chunks are changed
-			InvalidateRenderStateCallback.EVENT.register(this::reset);
-		}
+		private static ClientWorld currentWorld = null;
+
+		private static final Logger LOGGER = LogUtils.getLogger();
 
 		private static class RegionBuffer {
 			private final Map<RenderLayer, VertexBuffer> layerBuffers = new Object2ObjectArrayMap<>();
-			public final BlockPos origin;
+			private final Map<RenderLayer, VertexBuffer> uploadedLayerBuffers = new Reference2ReferenceArrayMap<>();
 
-			public RegionBuffer(RenderRegionPos region) {
-				origin = region.getOrigin();
-			}
-
-			public boolean hasLayer(RenderLayer rl) {
-				return layerBuffers.containsKey(rl);
-			}
-
-			public void render(RenderLayer rl, MatrixStack matrices, Matrix4f projectionMatrix) {
-				VertexBuffer buf = layerBuffers.get(rl);
+			public void render(RenderLayer l, MatrixStack matrices, Matrix4f projectionMatrix) {
+				VertexBuffer buf = uploadedLayerBuffers.get(l);
 				buf.bind();
 				buf.draw(matrices.peek().getPositionMatrix(), projectionMatrix, RenderSystem.getShader());
 			}
 
-			public void rebuild(RenderLayer rl, BufferBuilder newBuf) {
-				VertexBuffer buf = layerBuffers.computeIfAbsent(rl, renderLayer -> new VertexBuffer());
-				// TODO: translucency sorting?
+			public void reset() {
+				uploadedLayerBuffers.clear();
+			}
+
+			public void upload(RenderLayer l, BufferBuilder newBuf) {
+				VertexBuffer buf = layerBuffers.computeIfAbsent(l, renderLayer -> new VertexBuffer());
+ 
 				buf.bind();
 				buf.upload(newBuf.end());
+
+				uploadedLayerBuffers.put(l, buf);
 			}
 
 			public void deallocate() {
-				for (VertexBuffer buf : layerBuffers.values()) {
-					buf.close();
-				}
+				layerBuffers.values().forEach(VertexBuffer::close);
+				uploadedLayerBuffers.clear();
 			}
 
-			public void removeUnusedLayers(Set<RenderLayer> usedLayers) {
-				Iterator<RenderLayer> iter = layerBuffers.keySet().iterator();
-				while (iter.hasNext()) {
-					RenderLayer rl = iter.next();
-					if (!usedLayers.contains(rl)) {
-						layerBuffers.get(rl).close();
-						iter.remove();
-					}
-				}
-			}
-
-			public Set<RenderLayer> getAllLayers() {
-				return layerBuffers.keySet();
+			public Set<RenderLayer> getAllUploadedLayers() {
+				return uploadedLayerBuffers.keySet();
 			}
 		}
 
-		private static class RegionBuilder implements VertexConsumerProvider, Iterable<Map.Entry<RenderLayer, BufferBuilder>> {
-			private final Map<RenderLayer, BufferBuilder> bufs = new Object2ObjectArrayMap<>();
-			private final BlockEntityRenderDispatcher renderDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
+		private static class RegionBufferBuilder implements VertexConsumerProvider, Iterable<Map.Entry<RenderLayer, BufferBuilder>> {
+			private final Map<RenderLayer, BufferBuilder> layerBuffers = new Object2ObjectArrayMap<>();
+			private final Map<RenderLayer, BufferBuilder> usedLayerBuffers = new Reference2ReferenceArrayMap<>();
 
-			private <E extends BlockEntity> void render(E blockEntity) {
-				BlockEntityRenderer<E> ber = renderDispatcher.get(blockEntity);
-				if (ber instanceof BakedBlockEntityRenderer) {
-					MatrixStack bakeStack = new MatrixStack();
-					BlockPos pos = blockEntity.getPos();
-					bakeStack.translate(pos.getX() & VertexBufferManager.MAX_XZ_IN_REG, pos.getY(), pos.getZ() & VertexBufferManager.MAX_XZ_IN_REG);
-					World world = blockEntity.getWorld();
-					int light;
-					if (world != null) {
-						light = WorldRenderer.getLightmapCoordinates(world, blockEntity.getPos());
-					} else {
-						light = 15728880;
-					}
-					((BakedBlockEntityRenderer<E>) ber).renderBaked(blockEntity, bakeStack, this, light, OverlayTexture.DEFAULT_UV);
-				}
-			}
-
-			public void build(List<BlockEntity> blockEntities) {
-				for (BlockEntity be : blockEntities) {
-					render(be);
-				}
+			public void reset() {
+				layerBuffers.values().forEach(buf -> ((BufferBuilderAccessor) buf).invokeResetBuilding());
+				usedLayerBuffers.clear();
 			}
 
 			@Override
 			public VertexConsumer getBuffer(RenderLayer layer) {
-				return bufs.computeIfAbsent(layer, l -> {
-					BufferBuilder buf = new BufferBuilder(l.getExpectedBufferSize());
-					buf.begin(l.getDrawMode(), l.getVertexFormat());
+				return layerBuffers.compute(layer, (l, buf) -> {
+					if (buf == null) buf = new BufferBuilder(l.getExpectedBufferSize());
+					if (!buf.isBuilding()) buf.begin(l.getDrawMode(), l.getVertexFormat());
+					usedLayerBuffers.put(layer, buf);
 					return buf;
 				});
 			}
 
 			public @NotNull Iterator<Map.Entry<RenderLayer, BufferBuilder>> iterator() {
-				return bufs.entrySet().iterator();
+				return usedLayerBuffers.entrySet().iterator();
 			}
 		}
 
-		public void invalidate(BlockPos pos) {
-			// Mark a region as invalid. After the current set of rebuilding regions (invalid regions from the last frame) have been
-			// built, a RegionBuilder will be created for this region and passed to all BERs to render to
-			invalidRegions.add(new RenderRegionPos(pos));
+		/**
+		 * Causes the render region containing this BlockEntity to be rebuilt -
+		 * do not call this too frequently as it will affect performance.
+		 * An invalidation will not immediately cause the next frame to contain an updated view (and call to renderBaked)
+		 * as all render region rebuilds must call every BER that is to be rendered, otherwise they will be missing from the
+		 * vertex buffer.
+		 */
+		public static void markForRebuild(BlockPos pos) {
+			needsRebuild.add(new RenderRegionPos(pos));
 		}
 
 		// TODO: move chunk baking off-thread?
 
-		private boolean isVisiblePos(RenderRegionPos rrp, RenderRegionPos center) {
-			return Math.abs(rrp.x - center.x) <= VIEW_RADIUS && Math.abs(rrp.z - center.z) <= VIEW_RADIUS;
+		private static boolean isVisiblePos(RenderRegionPos rrp, Vec3d cam) {
+			return Math.abs(rrp.x - ((int)cam.getX() >> REGION_SHIFT)) <= VIEW_RADIUS && Math.abs(rrp.z - ((int)cam.getZ() >> REGION_SHIFT)) <= VIEW_RADIUS;
 		}
 
-		public void render(MatrixStack matrices, Matrix4f projectionMatrix, Camera camera) {
-			Vec3d vec3d = camera.getPos();
-			double camX = vec3d.getX();
-			double camY = vec3d.getY();
-			double camZ = vec3d.getZ();
-			RenderRegionPos centerRegion = new RenderRegionPos((int)camX >> REGION_SHIFT, (int)camZ >> REGION_SHIFT);
+		@SuppressWarnings({"rawtypes", "unchecked"})
+		public static void render(WorldRenderContext wrc) {
+			wrc.profiler().push("glowcase:baked_block_entity_rendering");
 
-			// Iterate over all RegionBuilders, render and upload to RegionBuffers
-			Set<RenderLayer> usedRenderLayers = new ObjectArraySet<>();
-			List<BlockEntity> blockEntities = new ArrayList<>();
-			for (Map.Entry<RenderRegionPos, RegionBuilder> entryBuilder : rebuilders.entrySet()) {
-				RenderRegionPos rrp = entryBuilder.getKey();
-				if (isVisiblePos(rrp, centerRegion)) {
-					// For the current region, rebuild each render layer using the buffer builders
-					// Find all block entities in this region
-					if (currWorld == null) {
-						break;
-					}
-					for (int chunkX = rrp.x << REGION_FROMCHUNK_SHIFT; chunkX < (rrp.x + 1) << REGION_FROMCHUNK_SHIFT; chunkX++) {
-						for (int chunkZ = rrp.z << REGION_FROMCHUNK_SHIFT; chunkZ < (rrp.z + 1) << REGION_FROMCHUNK_SHIFT; chunkZ++) {
-							blockEntities.addAll(currWorld.getChunk(chunkX, chunkZ).getBlockEntities().values());
+			Vec3d cam = wrc.camera().getPos();
+
+			if (!needsRebuild.isEmpty()) {
+				wrc.profiler().push("rebuild");
+				//  Make builders for regions that are marked for rebuild, render and upload to RegionBuffers
+				Set<RenderRegionPos> rebuilt = Sets.newLinkedHashSet();
+				Set<RenderRegionPos> removing = Sets.newLinkedHashSet();
+				List<BlockEntity> blockEntities = new ArrayList<>();
+				MatrixStack bakeMatrices = new MatrixStack();
+				for (RenderRegionPos rrp : needsRebuild) {
+					if (isVisiblePos(rrp, cam)) {
+						// For the current region, rebuild each render layer using the buffer builders
+						// Find all block entities in this region
+						if (currentWorld == null) {
+							break;
+						}
+
+						RegionBufferBuilder builder = builders.compute(rrp, (k, v) -> {
+							if (v != null) v.reset();
+							else v = new RegionBufferBuilder();
+							return v;
+						});
+
+						for (int chunkX = rrp.x << REGION_FROMCHUNK_SHIFT; chunkX < (rrp.x + 1) << REGION_FROMCHUNK_SHIFT; chunkX++) {
+							for (int chunkZ = rrp.z << REGION_FROMCHUNK_SHIFT; chunkZ < (rrp.z + 1) << REGION_FROMCHUNK_SHIFT; chunkZ++) {
+								blockEntities.addAll(currentWorld.getChunk(chunkX, chunkZ).getBlockEntities().values());
+							}
+						}
+
+						if (!blockEntities.isEmpty()) {
+							boolean bakedMaybeAnything = false;
+
+							for (BlockEntity be : blockEntities) {
+								if (mc.getBlockEntityRenderDispatcher().get(be) instanceof BakedBlockEntityRenderer renderer && renderer.shouldBake(be)) {
+									BlockPos pos = be.getPos();
+									bakeMatrices.push();
+									bakeMatrices.translate(pos.getX() & MAX_XZ_IN_REGION, pos.getY(), pos.getZ() & MAX_XZ_IN_REGION);
+									try {
+										renderer.renderBaked(be, bakeMatrices, builder, WorldRenderer.getLightmapCoordinates(currentWorld, pos), OverlayTexture.DEFAULT_UV);
+									} catch (Throwable t) {
+										LOGGER.error("Block entity renderer threw exception during baking : ");
+										t.printStackTrace();
+									} finally {
+										bakedMaybeAnything = true;
+									}
+									bakeMatrices.pop();
+								}
+							}
+							blockEntities.clear();
+
+							if (bakedMaybeAnything) {
+								RegionBuffer buf = regions.computeIfAbsent(rrp, k -> new RegionBuffer());
+								buf.reset();
+
+								builder.forEach(layerBuilder -> buf.upload(layerBuilder.getKey(), layerBuilder.getValue()));
+								rebuilt.add(rrp);
+							} else {
+								removing.add(rrp);
+							}
+						} else {
+							removing.add(rrp);
 						}
 					}
-					entryBuilder.getValue().build(blockEntities);
-					blockEntities.clear();
-					RegionBuffer buf = cachedRegions.computeIfAbsent(entryBuilder.getKey(), RegionBuffer::new);
-					for (Map.Entry<RenderLayer, BufferBuilder> layerBuilder : entryBuilder.getValue()) {
-						buf.rebuild(layerBuilder.getKey(), layerBuilder.getValue());
-						usedRenderLayers.add(layerBuilder.getKey());
-					}
-					buf.removeUnusedLayers(usedRenderLayers);
-					usedRenderLayers.clear();
 				}
-			}
-			// End the current region rebuild pass, make builders for invalidated regions
-			// TODO: move this phase - we don't need to wait anymore
-			// TODO: reuse bufferbuilders?
-			rebuilders.clear();
-			for (RenderRegionPos rrp : invalidRegions) {
-				rebuilders.put(rrp, new RegionBuilder());
-			}
-			invalidRegions.clear();
-
-			// TODO: reuse VBOs?
-			// Get a list of layers, remove unused RegionBuffers
-			Set<RenderLayer> renderLayers = new ObjectArraySet<>();
-			Iterator<Map.Entry<RenderRegionPos, RegionBuffer>> iterBuffers = cachedRegions.entrySet().iterator();
-			while (iterBuffers.hasNext()) {
-				Map.Entry<RenderRegionPos, RegionBuffer> entryBuffer = iterBuffers.next();
-				if (isVisiblePos(entryBuffer.getKey(), centerRegion)) {
-					renderLayers.addAll(entryBuffer.getValue().getAllLayers());
-				} else {
-					entryBuffer.getValue().deallocate();
-					iterBuffers.remove();
-				}
+				rebuilt.forEach(needsRebuild::remove);
+				removing.forEach(needsRebuild::remove);
+				wrc.profiler().pop();
+				removing.forEach(rrp -> {
+					RegionBuffer buf = regions.get(rrp);
+					buf.deallocate();
+					regions.remove(rrp, buf);
+				});
 			}
 
-			// Iterate over all RegionBuffers, render them
-			for (RenderLayer layer : renderLayers) {
-				layer.startDrawing();
-				for (RegionBuffer cb : cachedRegions.values()) {
-					if (cb.hasLayer(layer)) {
-						BlockPos origin = cb.origin;
+			if (!regions.isEmpty()) {
+				wrc.profiler().swap("render");
+				/**
+				 * Set the inverse view rotation matrix to the identity matrix, this fixes the fog color bleeding into the color of the rendered object at close distances,
+				 * this isn't a complete fix since fog still looks a bit funky at far distances
+				*/
+				Matrix3f originalViewRotationMatrix = RenderSystem.getInverseViewRotationMatrix();
+				RenderSystem.setInverseViewRotationMatrix(MATRIX3F_IDENTITY);
+				// Iterate over all RegionBuffers, render visible and remove non-visible RegionBuffers
+				Iterator<Map.Entry<RenderRegionPos, RegionBuffer>> iterBuffers = regions.entrySet().iterator();
+				MatrixStack matrices = wrc.matrixStack();
+				matrices.push();
+				matrices.translate(-cam.x, -cam.y, -cam.z);
+				while (iterBuffers.hasNext()) {
+					Map.Entry<RenderRegionPos, RegionBuffer> entry = iterBuffers.next();
+					RenderRegionPos rrp = entry.getKey();
+					RegionBuffer regionBuffer = entry.getValue();
+					if (isVisiblePos(entry.getKey(), cam)) {
+						// Iterate over used render layers in the region, render them
 						matrices.push();
-						matrices.translate(origin.getX() - camX, origin.getY() - camY, origin.getZ() - camZ);
-						cb.render(layer, matrices, projectionMatrix);
+						matrices.translate(rrp.origin.getX(), rrp.origin.getY(), rrp.origin.getZ());
+						for (RenderLayer layer : regionBuffer.getAllUploadedLayers()) {
+							layer.startDrawing();
+							regionBuffer.render(layer, matrices, wrc.projectionMatrix());
+							layer.endDrawing();
+							VertexBuffer.unbind();
+						}
 						matrices.pop();
+					} else {
+						regionBuffer.deallocate();
+						iterBuffers.remove();
 					}
 				}
-				layer.endDrawing();
+				RenderSystem.setInverseViewRotationMatrix(originalViewRotationMatrix);
+				matrices.pop();
 			}
+			wrc.profiler().pop();
+			RenderSystem.setShaderColor(1, 1, 1, 1);
 		}
 
-		public void activateRegion(BlockPos pos) {
+		public static void activateRegion(BlockPos pos) {
 			RenderRegionPos rrp = new RenderRegionPos(pos);
-			if (!cachedRegions.containsKey(rrp)) {
-				rebuilders.put(rrp, new RegionBuilder());
+			if (!regions.containsKey(rrp)) {
+				markForRebuild(pos);
 			}
 		}
 
-		private void reset() {
+		public static void reset() {
 			// Reset everything
-			for (RegionBuffer buf : cachedRegions.values()) {
-				buf.deallocate();
-			}
-			cachedRegions.clear();
-			invalidRegions.clear();
-			rebuilders.clear();
+			regions.values().forEach(RegionBuffer::deallocate);
+			regions.clear();
+			needsRebuild.clear();
+			builders.clear();
 		}
 
-		public void setWorld(ClientWorld world) {
+		public static void setWorld(ClientWorld world) {
 			reset();
-			currWorld = world;
+			currentWorld = world;
 		}
 	}
 }

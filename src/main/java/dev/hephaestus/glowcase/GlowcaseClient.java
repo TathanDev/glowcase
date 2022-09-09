@@ -1,15 +1,16 @@
 package dev.hephaestus.glowcase;
 
 import dev.hephaestus.glowcase.block.entity.MailboxBlockEntity;
-import dev.hephaestus.glowcase.client.render.block.entity.BakedBlockEntityRenderer;
 import dev.hephaestus.glowcase.client.render.block.entity.HyperlinkBlockEntityRenderer;
 import dev.hephaestus.glowcase.client.render.block.entity.ItemDisplayBlockEntityRenderer;
 import dev.hephaestus.glowcase.client.render.block.entity.TextBlockEntityRenderer;
+import dev.hephaestus.glowcase.client.render.block.entity.BakedBlockEntityRenderer.BakedBlockEntityRendererManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.InvalidateRenderStateCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -30,8 +31,8 @@ public class GlowcaseClient implements ClientModInitializer {
 		BlockEntityRendererRegistry.register(Glowcase.HYPERLINK_BLOCK_ENTITY, HyperlinkBlockEntityRenderer::new);
 		BlockEntityRendererRegistry.register(Glowcase.ITEM_DISPLAY_BLOCK_ENTITY, ItemDisplayBlockEntityRenderer::new);
 
-		WorldRenderEvents.AFTER_ENTITIES.register(ctx ->
-			BakedBlockEntityRenderer.VertexBufferManager.INSTANCE.render(ctx.matrixStack(), ctx.projectionMatrix(), ctx.camera()));
+		WorldRenderEvents.AFTER_TRANSLUCENT.register(BakedBlockEntityRendererManager::render);
+		InvalidateRenderStateCallback.EVENT.register(BakedBlockEntityRendererManager::reset);
 
 		HudRenderCallback.EVENT.register((matrixStack, tickDelta) -> {
 			MinecraftClient client = MinecraftClient.getInstance();
