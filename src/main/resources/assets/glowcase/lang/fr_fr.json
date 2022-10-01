@@ -1,0 +1,22 @@
+{
+  "itemGroup.glowcase.items": "Glowcase",
+  "block.glowcase.text_block": "Block de Texte",
+  "block.glowcase.hyperlink_block": "Block d'Hyperlien", 
+  "block.glowcase.item_display_block": "Block d'Affichage d'Items",
+  "block.glowcase.mailbox": "Boîte aux lettres",
+  "gui.glowcase.scale": "Taille: %d",
+  "gui.glowcase.alignment": "Alignement: %s",
+  "gui.glowcase.gives_item": "Donner l'item: %s",
+  "gui.glowcase.shadow_type": "Type d'Ombre",
+  "gui.glowcase.rotation_type": "Type de Rotation: %s",
+  "gui.glowcase.show_name": "Nom: %s",
+  "gui.glowcase.none": "(Aucun)",
+  "item.glowcase.text_block": "Block de Texte",
+  "item.glowcase.hyperlink_block": "Block d'Hyperlien",
+  "command.glowcase.message_sent": "Message envoyé!",
+  "command.glowcase.failed.no_mailbox": "Échec de l'envoi du message; aucune boîte aux lettres à cet endroit",
+  "command.glowcase.failed.no_world": "Échec de l'envoi du message; l'Expéditeur doit être dans un monde",
+  "glowcase.mailbox.sender": "De %s",
+  "glowcase.mailbox.reminder1": "Clique droit pour supprimer ce message",
+  "glowcase.mailbox.reminder2": "Sneak + Clique droit pour supprimer tous les messages de cet expéditeur"
+}
